@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yeust In-Memory Example</title>
+    <style>
+      body { font-family: Georgia, serif; margin: 0; background: #f4efe8; color: #1f1d1a; }
+      main { max-width: 960px; margin: 0 auto; padding: 24px; }
+      .card { background: rgba(255,255,255,.85); border: 1px solid #d7cfc3; border-radius: 18px; padding: 18px; margin-bottom: 16px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+      input { padding: 10px 12px; border-radius: 12px; border: 1px solid #cfc5b7; flex: 1; min-width: 220px; }
+      button { padding: 10px 14px; border-radius: 999px; border: 0; background: #176b84; color: white; cursor: pointer; }
+      button.alt { background: #b85d2b; }
+      pre { background: #17241d; color: #d6f5df; padding: 16px; border-radius: 14px; min-height: 220px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <h1>Yeust In-Memory Example</h1>
+        <p>Open this page in multiple tabs, join the same pocket, and broadcast events without Redis.</p>
+        <div>Status: <strong id="status">idle</strong></div>
+        <div>Socket: <strong id="socket">-</strong></div>
+        <div>Session: <strong id="session">-</strong></div>
+      </div>
+
+      <div class="card">
+        <label>Pockets</label>
+        <div class="row">
+          <input id="pockets" value="alpha" />
+          <button type="button" id="connect">Reconnect</button>
+          <button type="button" id="join">Join</button>
+          <button type="button" class="alt" id="leave">Leave</button>
+          <button type="button" id="state">State</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>Message</label>
+        <div class="row">
+          <input id="message" value="Hello from the in-memory example" />
+          <button type="button" id="broadcast">Broadcast</button>
+          <button type="button" class="alt" id="broadcast-ack">Broadcast with Ack</button>
+          <button type="button" id="ack">Ack Last</button>
+        </div>
+        <label style="display:block;margin-top:12px;">
+          <input id="auto-ack" type="checkbox" checked /> Auto-ack incoming events
+        </label>
+      </div>
+
+      <div class="card">
+        <pre id="log"></pre>
+      </div>
+    </main>
+    <script type="module" src="/client.js"></script>
+  </body>
+  </html>

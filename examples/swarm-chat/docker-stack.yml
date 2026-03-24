@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    networks: [yeust]
+
+  ws:
+    image: yeust-swarm-example:dev
+    environment:
+      PORT: "3000"
+      REDIS_URL: "redis://redis:6379"
+      YEUST_SCOPE: "yeust-swarm-example"
+      YEUST_UID: "{{.Task.Name}}"
+      YEUST_STREAM_NAME: "yeust:{yeust-swarm-example}:stream"
+      YEUST_NODES_KEY: "yeust:{yeust-swarm-example}:nodes"
+      YEUST_SESSION_PREFIX: "yeust:{yeust-swarm-example}:session:"
+      HEARTBEAT_INTERVAL_MS: "2500"
+      HEARTBEAT_TIMEOUT_MS: "5000"
+      SESSION_TTL_MS: "120000"
+    deploy:
+      replicas: 2
+    networks: [yeust]
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+
+networks:
+  yeust:
+    driver: overlay
