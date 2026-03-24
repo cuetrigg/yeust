@@ -22,9 +22,9 @@ bun install
 
 ## Examples
 
-Two React example apps created with `bun init --react` live under `examples/`:
+`examples/`:
 
-- `examples/in-memory-chat` shows the smallest useful `MemoryEmulsifier` setup
+- `examples/in-memory-chat` shows the `MemoryEmulsifier` setup
 - `examples/swarm-chat` shows a Redis-backed `RedisEmulsifier` app plus Docker Swarm files
 
 Quick start:
