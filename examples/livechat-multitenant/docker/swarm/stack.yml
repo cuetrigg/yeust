@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.swarm=true
+      - --providers.swarm.endpoint=unix:///var/run/docker.sock
+      - --providers.swarm.exposedbydefault=false
+      - --providers.swarm.network=livechat_edge
+      - --api.dashboard=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-ops@example.com}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - edge
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DASHBOARD_HOST:-traefik.example.com}`)
+        - traefik.http.routers.traefik.entrypoints=websecure
+        - traefik.http.routers.traefik.tls=true
+        - traefik.http.routers.traefik.tls.certresolver=le
+        - traefik.http.routers.traefik.service=api@internal
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+
+  livechat-multitenant:
+    image: yeust-livechat-multitenant:dev
+    environment:
+      PORT: "3010"
+      REDIS_URL: redis://redis:6379
+      YEUST_SCOPE: yeust-livechat-multitenant
+      YEUST_UID: "{{.Task.Name}}"
+    volumes:
+      - livechat_data:/app/examples/livechat-multitenant/data
+    networks:
+      - edge
+      - internal
+    deploy:
+      replicas: 2
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.livechat.rule=Host(`${PUBLIC_HOST:-chat.example.com}`)
+        - traefik.http.routers.livechat.entrypoints=websecure
+        - traefik.http.routers.livechat.tls=true
+        - traefik.http.routers.livechat.tls.certresolver=le
+        - traefik.http.services.livechat.loadbalancer.server.port=3010
+
+volumes:
+  livechat_data:
+  traefik_letsencrypt:
+
+networks:
+  edge:
+    name: livechat_edge
+    driver: overlay
+  internal:
+    name: livechat_internal
+    driver: overlay

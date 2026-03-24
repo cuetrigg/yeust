@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@source "./**/*.{ts,tsx,html}";
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-stone-950 text-stone-100 antialiased;
+  }
+
+  code {
+    @apply rounded bg-white/10 px-1.5 py-0.5 text-[0.95em] text-emerald-200;
+  }
+
+  ::selection {
+    @apply bg-teal-400/40;
+  }
+}
