@@ -22,24 +22,24 @@ bun install
 
 ## Examples
 
-Checkout our example apps under `examples/`:
+`examples/`:
 
-- `examples/in-memory-chat`
-- `examples/swarm-chat`
+- `examples/in-memory-chat` shows the `MemoryEmulsifier` setup
+- `examples/swarm-chat` shows a Redis-backed `RedisEmulsifier` app plus Docker Swarm files
 
 Quick start:
 
 ```bash
 cd examples/in-memory-chat
-bun run dev
+bun dev
 ```
 
 ```bash
 cd examples/swarm-chat
-bun run dev
+REDIS_URL=redis://127.0.0.1:6379 bun dev
 ```
 
-For clustered testing, follow `examples/swarm-chat/README.md`.
+For clustered deployment, follow `examples/swarm-chat/README.md`.
 
 ## Runtime assumptions
 

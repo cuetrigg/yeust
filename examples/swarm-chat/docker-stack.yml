@@ -3,7 +3,9 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
-    networks: [yeust]
+    command: ["redis-server", "--appendonly", "no"]
+    networks:
+      - yeust
 
   ws:
     image: yeust-swarm-example:dev
@@ -20,7 +22,8 @@ services:
       SESSION_TTL_MS: "120000"
     deploy:
       replicas: 2
-    networks: [yeust]
+    networks:
+      - yeust
     ports:
       - target: 3000
         published: 3000

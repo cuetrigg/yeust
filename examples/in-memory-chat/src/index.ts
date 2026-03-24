@@ -1,13 +1,13 @@
-import type { ServerWebSocket } from "bun";
+import { serve, type ServerWebSocket } from "bun";
+import index from "./index.html";
 import {
   MemoryEmulsifier,
-  createAckFrame,
   createSocketContext,
-  serializeFrame,
-  withMessageId,
   type InboundFrame,
   type OutboundFrame,
-} from "../../index.ts";
+  serializeFrame,
+  withMessageId,
+} from "../../../index.ts";
 
 interface ChatSocketData {
   socketId: string;
@@ -15,26 +15,24 @@ interface ChatSocketData {
   pockets: string[];
 }
 
-type ClientMessage =
+type CommandMessage =
   | { type: "join"; pockets: string[] }
   | { type: "leave"; pockets: string[] }
   | { type: "broadcast"; event?: string; message?: string; expectAck?: boolean }
-  | { type: "state" }
-  | InboundFrame;
+  | { type: "state" };
 
-const port = Number(Bun.env.PORT ?? "3001");
 const emulsifier = new MemoryEmulsifier();
-const html = Bun.file(new URL("./index.html", import.meta.url));
-const clientJs = Bun.file(new URL("./client.js", import.meta.url));
 
-Bun.serve<ChatSocketData>({
+const server = serve<ChatSocketData>({
   hostname: "0.0.0.0",
-  port,
-  fetch(request, server) {
-    const url = new URL(request.url);
-
-    if (url.pathname === "/ws") {
-      const upgraded = server.upgrade(request, {
+  port: Number(Bun.env.PORT ?? "3001"),
+  routes: {
+    "/health": () => Response.json({ ok: true, mode: "memory", sockets: emulsifier.size }),
+    "/*": index,
+  },
+  fetch(request, serverRef) {
+    if (new URL(request.url).pathname === "/ws") {
+      const upgraded = serverRef.upgrade(request, {
         data: {
           socketId: crypto.randomUUID(),
           sessionId: crypto.randomUUID(),
@@ -49,19 +47,7 @@ Bun.serve<ChatSocketData>({
       return;
     }
 
-    if (url.pathname === "/client.js") {
-      return new Response(clientJs, {
-        headers: { "content-type": "text/javascript; charset=utf-8" },
-      });
-    }
-
-    if (url.pathname === "/health") {
-      return Response.json({ ok: true, mode: "memory", sockets: emulsifier.size });
-    }
-
-    return new Response(html, {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
+    return new Response("Not found", { status: 404 });
   },
   websocket: {
     open(ws) {
@@ -71,10 +57,9 @@ Bun.serve<ChatSocketData>({
           sessionId: ws.data.sessionId,
           ws,
           pockets: ws.data.pockets,
-          data: { example: "memory" },
+          data: { mode: "memory" },
         }),
       );
-
       sendSystem(ws, "welcome", {
         socketId: ws.data.socketId,
         sessionId: ws.data.sessionId,
@@ -82,15 +67,10 @@ Bun.serve<ChatSocketData>({
       });
     },
     async message(ws, message) {
-      const payload = parseMessage(message);
+      const payload = JSON.parse(typeof message === "string" ? message : message.toString("utf8")) as CommandMessage | InboundFrame;
 
       if (isAckFrame(payload)) {
         await emulsifier.handleInboundFrame(ws.data.socketId, payload);
-        return;
-      }
-
-      if (!isCommandMessage(payload)) {
-        sendSystem(ws, "error", { message: "Unsupported message" });
         return;
       }
 
@@ -100,16 +80,14 @@ Bun.serve<ChatSocketData>({
           emulsifier.join(ws.data.socketId, pockets);
           ws.data.pockets = mergePockets(ws.data.pockets, pockets);
           sendSystem(ws, "joined", { pockets: ws.data.pockets });
-          return;
+          break;
         }
         case "leave": {
           const pockets = normalizePockets(payload.pockets);
           emulsifier.leave(ws.data.socketId, pockets);
-          ws.data.pockets = ws.data.pockets.filter(
-            (pocket) => !pockets.includes(pocket),
-          );
+          ws.data.pockets = ws.data.pockets.filter((pocket) => !pockets.includes(pocket));
           sendSystem(ws, "left", { pockets: ws.data.pockets });
-          return;
+          break;
         }
         case "broadcast": {
           const frame = withMessageId({
@@ -117,7 +95,7 @@ Bun.serve<ChatSocketData>({
             event: payload.event ?? "chat:message",
             data: {
               from: ws.data.socketId,
-              text: payload.message ?? "Hello from the in-memory example",
+              text: payload.message ?? "Hello from the in-memory React example",
             },
           }) as OutboundFrame & { id: string };
 
@@ -127,12 +105,12 @@ Bun.serve<ChatSocketData>({
               timeoutMs: 5_000,
             });
             sendSystem(ws, "ack:result", { requestId: frame.id, result });
-            return;
+            break;
           }
 
           await emulsifier.broadcast(frame, { pockets: ws.data.pockets });
           sendSystem(ws, "broadcast:sent", { requestId: frame.id });
-          return;
+          break;
         }
         case "state": {
           sendSystem(ws, "state", {
@@ -140,7 +118,7 @@ Bun.serve<ChatSocketData>({
             sessionId: ws.data.sessionId,
             pockets: ws.data.pockets,
           });
-          return;
+          break;
         }
       }
     },
@@ -148,23 +126,16 @@ Bun.serve<ChatSocketData>({
       await emulsifier.removeSocket(ws.data.socketId);
     },
   },
+  development: process.env.NODE_ENV !== "production" && {
+    hmr: true,
+    console: true,
+  },
 });
 
-console.log(`In-memory yeust example listening on http://localhost:${port}`);
+console.log(`In-memory React example running at ${server.url}`);
 
-function parseMessage(message: string | Buffer): ClientMessage {
-  const text = typeof message === "string" ? message : message.toString("utf8");
-  return JSON.parse(text) as ClientMessage;
-}
-
-function isAckFrame(message: ClientMessage): message is InboundFrame {
+function isAckFrame(message: CommandMessage | InboundFrame): message is InboundFrame {
   return typeof message === "object" && message !== null && "kind" in message;
-}
-
-function isCommandMessage(
-  message: ClientMessage,
-): message is Exclude<ClientMessage, InboundFrame> {
-  return typeof message === "object" && message !== null && "type" in message;
 }
 
 function normalizePockets(pockets: string[]): string[] {
@@ -180,11 +151,5 @@ function sendSystem(
   event: string,
   data?: unknown,
 ): void {
-  ws.send(
-    serializeFrame({
-      kind: "system",
-      event,
-      data,
-    }),
-  );
+  ws.send(serializeFrame({ kind: "system", event, data }));
 }
