@@ -26,6 +26,7 @@ bun install
 
 - `examples/in-memory-chat` shows the `MemoryEmulsifier` setup
 - `examples/swarm-chat` shows a Redis-backed `RedisEmulsifier` app plus Docker Swarm files
+- `examples/livechat-multitenant` shows a multi-tenant React live chat builder with JSON configs, static widget builds, Traefik, Redis, and private per-session server-to-server messaging
 
 Quick start:
 
@@ -39,7 +40,12 @@ cd examples/swarm-chat
 REDIS_URL=redis://127.0.0.1:6379 bun dev
 ```
 
-For clustered deployment, follow `examples/swarm-chat/README.md`.
+```bash
+cd examples/livechat-multitenant
+REDIS_URL=redis://127.0.0.1:6379 bun dev
+```
+
+For clustered deployment, follow `examples/swarm-chat/README.md` or `examples/livechat-multitenant/README.md`.
 
 ## Runtime assumptions
 

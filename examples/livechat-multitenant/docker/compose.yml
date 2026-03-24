@@ -1,0 +1,45 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.file.filename=/etc/traefik/dynamic/local.yml
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./traefik/local.yml:/etc/traefik/dynamic/local.yml:ro
+    networks:
+      - edge
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    networks:
+      - internal
+
+  livechat-multitenant:
+    build:
+      context: ../../..
+      dockerfile: examples/livechat-multitenant/Dockerfile
+    environment:
+      PORT: "3010"
+      REDIS_URL: redis://redis:6379
+      YEUST_SCOPE: yeust-livechat-multitenant
+      YEUST_UID: livechat-multitenant-local
+    volumes:
+      - livechat_data:/app/examples/livechat-multitenant/data
+    depends_on:
+      - redis
+    networks:
+      - edge
+      - internal
+
+volumes:
+  livechat_data:
+
+networks:
+  edge:
+  internal:
