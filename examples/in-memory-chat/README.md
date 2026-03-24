@@ -1,18 +1,18 @@
-# In-Memory Example
+# In-Memory React Example
 
-This example shows the smallest useful `yeust` setup with `MemoryEmulsifier`.
+This app was created with `bun init --react` and then wired to `MemoryEmulsifier`.
 
 Run it:
 
 ```bash
 cd examples/in-memory-chat
-bun run dev
+bun dev
 ```
 
-Open `http://localhost:3001` in a few tabs, join the same pocket, and test:
+Open `http://localhost:3001` in multiple tabs to test:
 
-- local pocket membership
-- in-process broadcast fanout
-- acknowledgement handling without Redis
+- pocket joins and leaves
+- single-process broadcast fanout
+- local acknowledgement handling
 
-Key usage is in `examples/in-memory-chat/index.ts`.
+The server entry is `examples/in-memory-chat/src/index.ts` and the React UI lives in `examples/in-memory-chat/src/App.tsx`.

@@ -1,12 +1,13 @@
-import { RedisClient, type ServerWebSocket } from "bun";
+import { RedisClient, serve, type ServerWebSocket } from "bun";
+import index from "./index.html";
 import {
   RedisEmulsifier,
   createSocketContext,
-  serializeFrame,
-  withMessageId,
   type InboundFrame,
   type OutboundFrame,
-} from "../../index.ts";
+  serializeFrame,
+  withMessageId,
+} from "../../../index.ts";
 
 interface SwarmSocketData {
   nodeId: string;
@@ -17,13 +18,12 @@ interface SwarmSocketData {
   pockets: string[];
 }
 
-type ClientMessage =
+type CommandMessage =
   | { type: "join"; pockets: string[] }
   | { type: "leave"; pockets: string[] }
   | { type: "broadcast"; message?: string; expectAck?: boolean; except?: string[] }
   | { type: "disconnect" }
-  | { type: "state" }
-  | InboundFrame;
+  | { type: "state" };
 
 const port = Number(Bun.env.PORT ?? "3000");
 const redisUrl = Bun.env.REDIS_URL ?? "redis://127.0.0.1:6379";
@@ -33,10 +33,7 @@ const nodeId = Bun.env.YEUST_UID ?? Bun.env.HOSTNAME ?? crypto.randomUUID();
 const commandClient = new RedisClient(redisUrl);
 await commandClient.connect();
 const streamClient = await commandClient.duplicate();
-
-if (!streamClient.connected) {
-  await streamClient.connect();
-}
+if (!streamClient.connected) await streamClient.connect();
 
 const emulsifier = new RedisEmulsifier<{ nodeId: string }, { nodeId: string }>(
   {
@@ -45,27 +42,27 @@ const emulsifier = new RedisEmulsifier<{ nodeId: string }, { nodeId: string }>(
     streamClient,
     streamName: Bun.env.YEUST_STREAM_NAME ?? `yeust:{${scope}}:stream`,
     nodesKey: Bun.env.YEUST_NODES_KEY ?? `yeust:{${scope}}:nodes`,
-    sessionKeyPrefix:
-      Bun.env.YEUST_SESSION_PREFIX ?? `yeust:{${scope}}:session:`,
+    sessionKeyPrefix: Bun.env.YEUST_SESSION_PREFIX ?? `yeust:{${scope}}:session:`,
     heartbeatIntervalMs: Number(Bun.env.HEARTBEAT_INTERVAL_MS ?? "2500"),
     heartbeatTimeoutMs: Number(Bun.env.HEARTBEAT_TIMEOUT_MS ?? "5000"),
     sessionTtlMs: Number(Bun.env.SESSION_TTL_MS ?? "120000"),
-    onError: (error) => console.error(`[${nodeId}]`, error),
+    onError: (error) => console.error(`[${nodeId}] redis emulsifier error`, error),
   },
   { scope },
 );
 
-const html = Bun.file(new URL("./index.html", import.meta.url));
-const clientJs = Bun.file(new URL("./client.js", import.meta.url));
-
-Bun.serve<SwarmSocketData>({
+const server = serve<SwarmSocketData>({
   hostname: "0.0.0.0",
   port,
-  fetch(request, server) {
+  routes: {
+    "/health": () => Response.json({ ok: true, nodeId, scope, sockets: emulsifier.size }),
+    "/*": index,
+  },
+  fetch(request, serverRef) {
     const url = new URL(request.url);
 
     if (url.pathname === "/ws") {
-      const upgraded = server.upgrade(request, {
+      const upgraded = serverRef.upgrade(request, {
         data: {
           nodeId,
           socketId: crypto.randomUUID(),
@@ -83,19 +80,7 @@ Bun.serve<SwarmSocketData>({
       return;
     }
 
-    if (url.pathname === "/client.js") {
-      return new Response(clientJs, {
-        headers: { "content-type": "text/javascript; charset=utf-8" },
-      });
-    }
-
-    if (url.pathname === "/health") {
-      return Response.json({ ok: true, nodeId, scope, sockets: emulsifier.size });
-    }
-
-    return new Response(html, {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
+    return new Response("Not found", { status: 404 });
   },
   websocket: {
     open: async (ws) => {
@@ -138,15 +123,10 @@ Bun.serve<SwarmSocketData>({
       }
     },
     message: async (ws, message) => {
-      const payload = parseMessage(message);
+      const payload = JSON.parse(typeof message === "string" ? message : message.toString("utf8")) as CommandMessage | InboundFrame;
 
       if (isAckFrame(payload)) {
         await emulsifier.handleInboundFrame(ws.data.socketId, payload);
-        return;
-      }
-
-      if (!isCommandMessage(payload)) {
-        sendSystem(ws, "error", { nodeId, message: "Unsupported message" });
         return;
       }
 
@@ -156,16 +136,14 @@ Bun.serve<SwarmSocketData>({
           await emulsifier.join(ws.data.socketId, pockets);
           ws.data.pockets = mergePockets(ws.data.pockets, pockets);
           sendSystem(ws, "joined", { nodeId, pockets: ws.data.pockets });
-          return;
+          break;
         }
         case "leave": {
           const pockets = normalizePockets(payload.pockets);
           await emulsifier.leave(ws.data.socketId, pockets);
-          ws.data.pockets = ws.data.pockets.filter(
-            (pocket) => !pockets.includes(pocket),
-          );
+          ws.data.pockets = ws.data.pockets.filter((pocket) => !pockets.includes(pocket));
           sendSystem(ws, "left", { nodeId, pockets: ws.data.pockets });
-          return;
+          break;
         }
         case "broadcast": {
           const frame = withMessageId({
@@ -174,9 +152,10 @@ Bun.serve<SwarmSocketData>({
             data: {
               from: ws.data.socketId,
               nodeId,
-              text: payload.message ?? "Hello from the swarm example",
+              text: payload.message ?? "Hello from the swarm React example",
             },
           }) as OutboundFrame & { id: string };
+
           const options = {
             pockets: ws.data.pockets,
             except: normalizeOptionalPockets(payload.except),
@@ -188,16 +167,16 @@ Bun.serve<SwarmSocketData>({
               timeoutMs: 5_000,
             });
             sendSystem(ws, "ack:result", { nodeId, requestId: frame.id, result });
-            return;
+            break;
           }
 
           await emulsifier.broadcast(frame, options);
           sendSystem(ws, "broadcast:sent", { nodeId, requestId: frame.id });
-          return;
+          break;
         }
         case "disconnect": {
           ws.close(1000, "client requested disconnect");
-          return;
+          break;
         }
         case "state": {
           sendSystem(ws, "state", {
@@ -206,7 +185,7 @@ Bun.serve<SwarmSocketData>({
             sessionId: ws.data.sessionId,
             pockets: ws.data.pockets,
           });
-          return;
+          break;
         }
       }
     },
@@ -214,37 +193,27 @@ Bun.serve<SwarmSocketData>({
       await emulsifier.removeSocket(ws.data.socketId);
     },
   },
+  development: process.env.NODE_ENV !== "production" && {
+    hmr: true,
+    console: true,
+  },
 });
 
-console.log(`[${nodeId}] swarm example listening on http://localhost:${port}`);
+console.log(`[${nodeId}] swarm React example running at ${server.url}`);
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 async function shutdown(): Promise<void> {
+  server.stop(true);
   await emulsifier.close();
-  if (commandClient.connected) {
-    commandClient.close();
-  }
-  if (streamClient.connected) {
-    streamClient.close();
-  }
+  if (commandClient.connected) commandClient.close();
+  if (streamClient.connected) streamClient.close();
   process.exit(0);
 }
 
-function parseMessage(message: string | Buffer): ClientMessage {
-  const text = typeof message === "string" ? message : message.toString("utf8");
-  return JSON.parse(text) as ClientMessage;
-}
-
-function isAckFrame(message: ClientMessage): message is InboundFrame {
+function isAckFrame(message: CommandMessage | InboundFrame): message is InboundFrame {
   return typeof message === "object" && message !== null && "kind" in message;
-}
-
-function isCommandMessage(
-  message: ClientMessage,
-): message is Exclude<ClientMessage, InboundFrame> {
-  return typeof message === "object" && message !== null && "type" in message;
 }
 
 function normalizePockets(pockets: string[]): string[] {
@@ -252,10 +221,7 @@ function normalizePockets(pockets: string[]): string[] {
 }
 
 function normalizeOptionalPockets(pockets?: string[]): string[] | undefined {
-  if (!pockets || pockets.length === 0) {
-    return undefined;
-  }
-
+  if (!pockets || pockets.length === 0) return undefined;
   return normalizePockets(pockets);
 }
 
@@ -268,11 +234,5 @@ function sendSystem(
   event: string,
   data?: unknown,
 ): void {
-  ws.send(
-    serializeFrame({
-      kind: "system",
-      event,
-      data,
-    }),
-  );
+  ws.send(serializeFrame({ kind: "system", event, data }));
 }
