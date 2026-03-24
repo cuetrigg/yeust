@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yeust Swarm Example</title>
+    <style>
+      body { margin: 0; font-family: "Palatino Linotype", serif; background: linear-gradient(180deg,#fbf4e8,#eadac2); color: #1d1a16; }
+      main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      .panel { background: rgba(255,255,255,.82); border: 1px solid #d7ccbc; border-radius: 20px; padding: 18px; margin-bottom: 16px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+      input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid #cfbfaa; }
+      button { border: 0; border-radius: 999px; padding: 10px 14px; cursor: pointer; background: #0f7b66; color: white; }
+      button.alt { background: #c56028; }
+      pre { background: #11231f; color: #daf6ee; min-height: 260px; padding: 16px; border-radius: 14px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <h1>Yeust Swarm Example</h1>
+        <p>Run this example with multiple replicas to test cross-node pockets, acknowledgements, and recovery.</p>
+        <div>Status: <strong id="status">idle</strong></div>
+        <div>Node: <strong id="node">-</strong></div>
+        <div>Socket: <strong id="socket">-</strong></div>
+        <div>Session: <strong id="session">-</strong></div>
+        <div>Offset: <strong id="offset">-</strong></div>
+        <div class="row">
+          <button type="button" id="connect-fresh">Connect Fresh</button>
+          <button type="button" id="reconnect">Reconnect</button>
+          <button type="button" class="alt" id="disconnect">Disconnect</button>
+          <button type="button" id="state">State</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <label>Pockets</label>
+          <input id="pockets" value="alpha" />
+          <div class="row">
+            <button type="button" id="join">Join</button>
+            <button type="button" class="alt" id="leave">Leave</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <label>Except pockets</label>
+          <input id="except" placeholder="ignore" />
+          <label style="display:block;margin-top:10px;">Message</label>
+          <input id="message" value="Hello from the swarm example" />
+          <div class="row">
+            <button type="button" id="broadcast">Broadcast</button>
+            <button type="button" class="alt" id="broadcast-ack">Broadcast with Ack</button>
+            <button type="button" id="ack">Ack Last</button>
+          </div>
+          <label style="display:block;margin-top:12px;">
+            <input id="auto-ack" type="checkbox" checked /> Auto-ack incoming events
+          </label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <pre id="log"></pre>
+      </div>
+    </main>
+    <script type="module" src="/client.js"></script>
+  </body>
+  </html>

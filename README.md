@@ -20,6 +20,27 @@ The server-side coordination layer is called an `emulsifier`.
 bun install
 ```
 
+## Examples
+
+Checkout our example apps under `examples/`:
+
+- `examples/in-memory-chat`
+- `examples/swarm-chat`
+
+Quick start:
+
+```bash
+cd examples/in-memory-chat
+bun run dev
+```
+
+```bash
+cd examples/swarm-chat
+bun run dev
+```
+
+For clustered testing, follow `examples/swarm-chat/README.md`.
+
 ## Runtime assumptions
 
 - Bun native websocket server via `Bun.serve()`
