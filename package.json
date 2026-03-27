@@ -2,6 +2,10 @@
   "name": "yeust",
   "module": "index.ts",
   "type": "module",
+  "files": [
+    "index.ts",
+    "src"
+  ],
   "devDependencies": {
     "@types/bun": "latest"
   },

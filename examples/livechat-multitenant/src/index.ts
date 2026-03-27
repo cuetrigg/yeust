@@ -11,7 +11,7 @@ import {
   withMessageId,
   type InboundFrame,
   type OutboundFrame,
-} from "../../../index.ts";
+} from "yeust";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -110,12 +110,8 @@ const historyMaxItems = Number(Bun.env.HISTORY_MAX_ITEMS ?? "200");
 await mkdir(configsRoot, { recursive: true });
 await mkdir(widgetsRoot, { recursive: true });
 
-const commandClient = new RedisClient(redisUrl);
-await commandClient.connect();
-const streamClient = await commandClient.duplicate();
-if (!streamClient.connected) {
-  await streamClient.connect();
-}
+const commandClient = await connectRedisClient("command");
+const streamClient = await connectRedisClient("stream");
 
 const emulsifier = new RedisEmulsifier<{ nodeId: string }, { nodeId: string }>(
   {
@@ -129,7 +125,7 @@ const emulsifier = new RedisEmulsifier<{ nodeId: string }, { nodeId: string }>(
     heartbeatIntervalMs: Number(Bun.env.HEARTBEAT_INTERVAL_MS ?? "2500"),
     heartbeatTimeoutMs: Number(Bun.env.HEARTBEAT_TIMEOUT_MS ?? "5000"),
     sessionTtlMs: Number(Bun.env.SESSION_TTL_MS ?? "120000"),
-    onError: (error) => console.error(`[${nodeId}] livechat builder error`, error),
+    onError: (error: unknown) => console.error(`[${nodeId}] livechat builder error`, error),
   },
   { scope },
 );
@@ -388,6 +384,41 @@ async function shutdown(): Promise<void> {
   if (commandClient.connected) commandClient.close();
   if (streamClient.connected) streamClient.close();
   process.exit(0);
+}
+
+async function connectRedisClient(name: string): Promise<RedisClient> {
+  const maxAttempts = 20;
+  const timeoutMs = 1500;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const client = new RedisClient(redisUrl);
+
+    try {
+      await Promise.race([
+        client.connect(),
+        Bun.sleep(timeoutMs).then(() => {
+          throw new Error(`Timed out connecting after ${timeoutMs}ms`);
+        }),
+      ]);
+
+      return client;
+    } catch (error) {
+      if (client.connected) client.close();
+
+      if (attempt === maxAttempts) {
+        throw new Error(
+          `[${nodeId}] Failed to connect ${name} Redis client after ${maxAttempts} attempts: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      console.warn(
+        `[${nodeId}] ${name} Redis client connect attempt ${attempt}/${maxAttempts} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await Bun.sleep(Math.min(250 * attempt, 1500));
+    }
+  }
+
+  throw new Error(`[${nodeId}] Failed to connect ${name} Redis client`);
 }
 
 async function handleBuildRequest(request: Request): Promise<Response> {

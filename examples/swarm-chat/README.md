@@ -6,6 +6,7 @@ Run it directly first:
 
 ```bash
 cd examples/swarm-chat
+bun install
 REDIS_URL=redis://127.0.0.1:6379 bun dev
 ```
 
@@ -13,9 +14,11 @@ To test Docker Swarm from the repo root:
 
 ```bash
 docker swarm init
-docker build -f examples/swarm-chat/Dockerfile -t yeust-swarm-example:dev .
+docker build --build-context yeust=. -f examples/swarm-chat/Dockerfile -t yeust-swarm-example:dev examples/swarm-chat
 docker stack deploy -c examples/swarm-chat/docker-stack.yml yeustexample
 ```
+
+If you copy this example out of the repo, point the `yeust` package dependency at your cloned `yeust` checkout and pass that same path to Docker with `--build-context yeust=/path/to/yeust`.
 
 Open `http://localhost:3000` in multiple tabs and test:
 

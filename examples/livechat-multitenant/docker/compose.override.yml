@@ -1,8 +1,0 @@
-services:
-  livechat-multitenant:
-    command: ["bun", "--hot", "src/index.ts"]
-    volumes:
-      - ../../../:/app
-      - livechat_data:/app/examples/livechat-multitenant/data
-    environment:
-      NODE_ENV: development

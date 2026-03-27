@@ -32,18 +32,23 @@ Quick start:
 
 ```bash
 cd examples/in-memory-chat
+bun install
 bun dev
 ```
 
 ```bash
 cd examples/swarm-chat
+bun install
 REDIS_URL=redis://127.0.0.1:6379 bun dev
 ```
 
 ```bash
 cd examples/livechat-multitenant
+bun install
 REDIS_URL=redis://127.0.0.1:6379 bun dev
 ```
+
+Each example depends on the local `yeust` package via `file:../..`. If you copy an example out of this repo, point that dependency at your cloned `yeust` checkout or a packaged build of `yeust`.
 
 For clustered deployment, follow `examples/swarm-chat/README.md` or `examples/livechat-multitenant/README.md`.
 

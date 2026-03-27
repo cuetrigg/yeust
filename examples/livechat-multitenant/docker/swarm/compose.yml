@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.4
     command:
       - --providers.swarm=true
       - --providers.swarm.endpoint=unix:///var/run/docker.sock
@@ -13,7 +11,7 @@ services:
       - --entrypoints.websecure.address=:443
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
-      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-ops@example.com}
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.tlschallenge=true
     ports:
@@ -35,12 +33,12 @@ services:
         constraints:
           - node.role == manager
       labels:
-        - traefik.enable=true
-        - traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DASHBOARD_HOST:-traefik.example.com}`)
-        - traefik.http.routers.traefik.entrypoints=websecure
-        - traefik.http.routers.traefik.tls=true
-        - traefik.http.routers.traefik.tls.certresolver=le
-        - traefik.http.routers.traefik.service=api@internal
+        traefik.enable: "true"
+        traefik.http.routers.traefik.rule: Host(`${TRAEFIK_DASHBOARD_HOST:-traefik.localhost}`)
+        traefik.http.routers.traefik.entrypoints: websecure
+        traefik.http.routers.traefik.tls: "true"
+        traefik.http.routers.traefik.tls.certresolver: le
+        traefik.http.routers.traefik.service: api@internal
 
   redis:
     image: redis:7-alpine
@@ -51,26 +49,26 @@ services:
       replicas: 1
 
   livechat-multitenant:
-    image: yeust-livechat-multitenant:dev
+    image: ${LIVECHAT_IMAGE:-yeust-livechat-multitenant:local}
     environment:
       PORT: "3010"
       REDIS_URL: redis://redis:6379
       YEUST_SCOPE: yeust-livechat-multitenant
       YEUST_UID: "{{.Task.Name}}"
     volumes:
-      - livechat_data:/app/examples/livechat-multitenant/data
+      - livechat_data:/app/data
     networks:
       - edge
       - internal
     deploy:
       replicas: 2
       labels:
-        - traefik.enable=true
-        - traefik.http.routers.livechat.rule=Host(`${PUBLIC_HOST:-chat.example.com}`)
-        - traefik.http.routers.livechat.entrypoints=websecure
-        - traefik.http.routers.livechat.tls=true
-        - traefik.http.routers.livechat.tls.certresolver=le
-        - traefik.http.services.livechat.loadbalancer.server.port=3010
+        traefik.enable: "true"
+        traefik.http.routers.livechat.rule: Host(`${PUBLIC_HOST:-livechat.localhost}`)
+        traefik.http.routers.livechat.entrypoints: websecure
+        traefik.http.routers.livechat.tls: "true"
+        traefik.http.routers.livechat.tls.certresolver: le
+        traefik.http.services.livechat.loadbalancer.server.port: "3010"
 
 volumes:
   livechat_data:

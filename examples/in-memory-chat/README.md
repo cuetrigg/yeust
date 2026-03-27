@@ -6,6 +6,7 @@ Run it:
 
 ```bash
 cd examples/in-memory-chat
+bun install
 bun dev
 ```
 

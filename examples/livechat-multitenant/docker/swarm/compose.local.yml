@@ -1,0 +1,16 @@
+services:
+  traefik:
+    configs:
+      - source: traefik_local_dynamic
+        target: /etc/traefik/dynamic/local.yml
+    command:
+      - --api.dashboard=true
+      - --entrypoints.web.address=:80
+      - --providers.file.filename=/etc/traefik/dynamic/local.yml
+
+  livechat-multitenant:
+    image: yeust-livechat-multitenant:local
+
+configs:
+  traefik_local_dynamic:
+    file: ./traefik.local.yml

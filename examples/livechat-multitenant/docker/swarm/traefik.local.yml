@@ -1,0 +1,29 @@
+http:
+  routers:
+    livechat:
+      entryPoints:
+        - web
+      rule: Host(`livechat.localhost`)
+      service: livechat
+    livechat-api:
+      entryPoints:
+        - web
+      rule: Host(`traefik.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+      service: api@internal
+    livechat-dashboard-home:
+      entryPoints:
+        - web
+      rule: Host(`traefik.localhost`) && Path(`/`)
+      middlewares:
+        - dashboard-redirect
+      service: noop@internal
+  middlewares:
+    dashboard-redirect:
+      redirectRegex:
+        regex: ^http://traefik\.localhost/$
+        replacement: http://traefik.localhost/dashboard/
+  services:
+    livechat:
+      loadBalancer:
+        servers:
+          - url: http://livechat-multitenant:3010

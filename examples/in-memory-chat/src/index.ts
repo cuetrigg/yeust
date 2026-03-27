@@ -7,7 +7,7 @@ import {
   type OutboundFrame,
   serializeFrame,
   withMessageId,
-} from "../../../index.ts";
+} from "yeust";
 
 interface ChatSocketData {
   socketId: string;

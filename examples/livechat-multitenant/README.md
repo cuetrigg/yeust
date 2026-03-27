@@ -39,27 +39,34 @@ REDIS_URL=redis://127.0.0.1:6379 bun dev
 
 Open `http://localhost:3010`.
 
-## Local Docker setup
+## Local swarm setup
 
-For local Docker development, use Compose with Traefik over plain HTTP:
+Local Docker now uses the same Swarm stack shape as production, with a small overlay for localhost routing.
+
+The base stack lives under `examples/livechat-multitenant/docker/swarm/compose.yml` and the local overlay lives under `examples/livechat-multitenant/docker/swarm/compose.local.yml`.
+
+Then from the repo root:
 
 ```bash
-cd examples/livechat-multitenant/docker
-docker compose up --build
+docker swarm init
+docker build --build-context yeust=. -f examples/livechat-multitenant/Dockerfile -t yeust-livechat-multitenant:local examples/livechat-multitenant
+docker stack deploy -c examples/livechat-multitenant/docker/swarm/compose.yml -c examples/livechat-multitenant/docker/swarm/compose.local.yml yeustlivechat
 ```
 
-Routes:
+If you copy this example out of the repo, point `--build-context yeust=/path/to/yeust` at your cloned `yeust` checkout before building the image.
+
+Local routes:
 
 - `http://livechat.localhost/`
 - `http://livechat.localhost/livechat-{uuid}.js`
 - `http://livechat.localhost/api/livechat/build`
 - `http://livechat.localhost/api/livechat/messages`
 - `http://livechat.localhost/api/livechat/history?tenantUuid={uuid}&sessionId={sessionId}`
-- `http://localhost:8080/` for the Traefik dashboard
+- `http://traefik.localhost/`
 
-## Swarm stack
+## Production swarm setup
 
-The stack lives under `examples/livechat-multitenant/docker/swarm/stack.yml`.
+Production uses the same base stack file, with pipeline-supplied image and host values.
 
 It includes:
 
@@ -71,11 +78,11 @@ Then from the repo root:
 
 ```bash
 docker swarm init
-docker build -f examples/livechat-multitenant/Dockerfile -t yeust-livechat-multitenant:dev .
+export LIVECHAT_IMAGE=registry.example.com/yeust-livechat-multitenant:${GIT_SHA}
 export PUBLIC_HOST=chat.example.com
 export TRAEFIK_DASHBOARD_HOST=traefik.example.com
 export ACME_EMAIL=ops@example.com
-docker stack deploy -c examples/livechat-multitenant/docker/swarm/stack.yml yeustlivechat
+docker stack deploy -c examples/livechat-multitenant/docker/swarm/compose.yml yeustlivechat
 ```
 
 Main routes:
@@ -86,12 +93,13 @@ Main routes:
 - `https://${PUBLIC_HOST}/api/livechat/messages`
 - `https://${TRAEFIK_DASHBOARD_HOST}/`
 
-Production HTTPS is handled by Traefik's ACME certificate resolver in the Swarm stack.
+Production HTTPS is handled by Traefik's ACME certificate resolver in the base Swarm stack.
 
 ## Key files
 
 - `examples/livechat-multitenant/src/index.ts`
 - `examples/livechat-multitenant/src/App.tsx`
 - `examples/livechat-multitenant/src/widget-entry.ts`
-- `examples/livechat-multitenant/docker/compose.yml`
-- `examples/livechat-multitenant/docker/swarm/stack.yml`
+- `examples/livechat-multitenant/docker/swarm/compose.yml`
+- `examples/livechat-multitenant/docker/swarm/compose.local.yml`
+- `examples/livechat-multitenant/docker/swarm/traefik.local.yml`
